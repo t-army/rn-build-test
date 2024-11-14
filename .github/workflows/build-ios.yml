@@ -16,8 +16,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # https://reactnative.dev/docs/build-speed#use-a-compiler-cache
+      - name: Restore buildcache
+        uses: cscouto/buildcache-action@v1
+        continue-on-error: true
+
       - name: Cache Yarn dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.yarn/cache
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
@@ -25,7 +30,7 @@ jobs:
             ${{ runner.os }}-yarn-
 
       - name: Cache Pods
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/Library/Caches/CocoaPods
           key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
@@ -51,26 +56,28 @@ jobs:
           bundle-id: ${{ env.APP_BUNDLE_ID }}
           issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
+
+      - name: Install xcpretty
+        run: gem install xcpretty
 
       - name: Build and Archive
         working-directory: ios
         run: |
-          xcodebuild clean archive \
+          set -o pipefail && xcodebuild CC=clang CPLUSPLUS=clang++ LD=clang LDPLUSPLUS=clang++ archive \
             -workspace $APP_NAME.xcworkspace \
             -scheme $APP_SCHEME \
             -configuration $APP_CONFIGURATION \
             -showBuildTimingSummary \
             -parallelizeTargets \
             -disableAutomaticPackageResolution \
-            -archivePath $PWD/build/$APP_NAME.xcarchive
+            -archivePath $PWD/build/$APP_NAME.xcarchive | xcpretty
 
       - name: Export IPA
         working-directory: ios
         run: |
           xcodebuild -exportArchive \
             -archivePath $PWD/build/$APP_NAME.xcarchive \
-            -exportPath $PWD/build \
+            -exportPath $PWD/build/$APP_NAME.ipa \
             -exportOptionsPlist ExportOptions.plist
 
       - name: Upload Artifact (IPA)
@@ -78,6 +85,7 @@ jobs:
         with:
           name: IPA
           path: ios/build/${{ env.APP_NAME }}.ipa
+          #if-no-files-found: error
 
       - name: Upload app to TestFlight
         uses: Apple-Actions/upload-testflight-build@v1
