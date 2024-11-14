@@ -1,0 +1,95 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: ShopApperApp
+  APP_SCHEME: Production
+  APP_CONFIGURATION: Release
+  APP_BUNDLE_ID: shopapper.weptile.shopapperbuild
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Cache Pods
+        uses: actions/cache@v3
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install node dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      - name: Import code sign
+        uses: Apple-Actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.APPSTORE_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.APPSTORE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+
+      - name: Download provisioning
+        uses: Apple-Actions/download-provisioning-profiles@v1
+        with:
+          bundle-id: ${{ env.APP_BUNDLE_ID }}
+          issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
+
+      - name: Build and Archive
+        working-directory: ios
+        run: |
+          xcodebuild clean archive \
+            -workspace $APP_NAME.xcworkspace \
+            -scheme $APP_SCHEME \
+            -configuration $APP_CONFIGURATION \
+            -showBuildTimingSummary \
+            -parallelizeTargets \
+            -disableAutomaticPackageResolution \
+            -archivePath $PWD/build/$APP_NAME.xcarchive
+
+      - name: Export IPA
+        working-directory: ios
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath $PWD/build/$APP_NAME.xcarchive \
+            -exportPath $PWD/build \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Upload Artifact (IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: IPA
+          path: ios/build/${{ env.APP_NAME }}.ipa
+
+      - name: Upload app to TestFlight
+        uses: Apple-Actions/upload-testflight-build@v1
+        with:
+          app-path: ios/build/${{ env.APP_NAME }}.ipa
+          issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
+
+      # https://docs.github.com/en/actions/use-cases-and-examples/deploying/installing-an-apple-certificate-on-macos-runners-for-xcode-development#required-clean-up-on-self-hosted-runners
+      #- name: Clean up keychain and provisioning profile
+      #  if: ${{ always() }}
+      #  run: |
+      #    security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
+      #    rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision
