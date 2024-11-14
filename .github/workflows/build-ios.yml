@@ -37,6 +37,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pods-
 
+      - name: Cache Cocoapods
+        uses: actions/cache@v4
+        with:
+          path: ~/.cocoapods
+          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      #- name: Cache DerivedData
+      #  uses: actions/cache@v4
+      #  with:
+      #    path: .local_derived_data
+      #    key: ${{ runner.os }}-pods-derived-data-${{ hashFiles('**/Podfile.lock') }}
+
       - name: Install node dependencies
         run: yarn install --frozen-lockfile
 
@@ -86,7 +100,6 @@ jobs:
         with:
           name: IPA
           path: ios/build/${{ env.APP_NAME }}.ipa
-          #if-no-files-found: error
 
       - name: Upload app to TestFlight
         uses: Apple-Actions/upload-testflight-build@v1
