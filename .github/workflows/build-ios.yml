@@ -78,7 +78,7 @@ jobs:
         run: |
           xcodebuild -exportArchive \
             -archivePath $PWD/build/$APP_NAME.xcarchive \
-            -exportPath $PWD/build/$APP_NAME.ipa \
+            -exportPath $PWD/build \
             -exportOptionsPlist ExportOptions.plist
 
       - name: Upload Artifact (IPA)
