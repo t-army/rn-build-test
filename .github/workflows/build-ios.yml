@@ -56,6 +56,7 @@ jobs:
           bundle-id: ${{ env.APP_BUNDLE_ID }}
           issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
 
       - name: Install xcpretty
         run: gem install xcpretty
