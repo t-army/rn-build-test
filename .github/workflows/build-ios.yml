@@ -17,42 +17,48 @@ jobs:
         uses: actions/checkout@v4
 
       # https://reactnative.dev/docs/build-speed#use-a-compiler-cache
-      - name: Restore buildcache
+      - name: Restore compiler cache
         uses: cscouto/buildcache-action@v1
         continue-on-error: true
 
-      - name: Cache Yarn dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.yarn/cache
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
+      - name: Get node version
+        id: node_version
+        run: |
+          echo "::set-output name=version::$(node -v)"
 
-      - name: Cache Pods
+      - name: Restore node_modules cache
+        id: node-modules-cache
         uses: actions/cache@v4
         with:
-          path: ~/Library/Caches/CocoaPods
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/yarn.lock') }}-${{ steps.node_version.outputs.version }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-
+
+      - name: Restore pods cache
+        id: pods-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ./ios/Pods
+            ~/.cocoapods
+            ~/Library/Caches/CocoaPods
           key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
           restore-keys: |
             ${{ runner.os }}-pods-
 
-      - name: Cache Cocoapods
+      - name: Restore Derived Data cache
         uses: actions/cache@v4
         with:
-          path: ~/.cocoapods
-          key: ${{ runner.os }}-pods-${{ hashFiles('**/Podfile.lock') }}
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-xcode-derived-data-${{ hashFiles('**/*.xcodeproj', '**/*.xcworkspace', '**/Podfile.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pods-
+            ${{ runner.os }}-xcode-deriveddata-
 
-      #- name: Cache DerivedData
-      #  uses: actions/cache@v4
-      #  with:
-      #    path: .local_derived_data
-      #    key: ${{ runner.os }}-pods-derived-data-${{ hashFiles('**/Podfile.lock') }}
-
-      - name: Install node dependencies
-        run: yarn install --frozen-lockfile
+      - name: Install node_modules if necessary
+        if: steps.node-modules-cache.outputs.cache-hit != 'true'
+        run: |
+          yarn install --frozen-lockfile
 
       - name: Install CocoaPods dependencies
         working-directory: ios
