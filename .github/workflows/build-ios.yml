@@ -20,6 +20,11 @@ jobs:
       - name: Restore compiler cache
         uses: cscouto/buildcache-action@v1
         continue-on-error: true
+        with:
+          upload_buildcache_log: 'true'
+          zero_buildcache_stats: 'false'
+        env:
+          BUILDCACHE_DEBUG: 2
 
       - name: Get node version
         id: node_version
