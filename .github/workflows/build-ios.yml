@@ -18,7 +18,7 @@ jobs:
 
       # https://reactnative.dev/docs/build-speed#use-a-compiler-cache
       - name: Restore compiler cache
-        uses: cscouto/buildcache-action@v1
+        uses: ridvanaltun/buildcache-action@v1
         continue-on-error: true
         with:
           upload_buildcache_log: 'true'
