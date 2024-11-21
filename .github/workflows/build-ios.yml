@@ -114,7 +114,7 @@ jobs:
           path: ios/build/${{ env.APP_NAME }}.ipa
 
       - name: Upload app to TestFlight
-        if: ${{ github.event.inputs.publish }}
+        if: ${{ github.event.inputs.publish == 'true' }}
         uses: Apple-Actions/upload-testflight-build@v1
         with:
           app-path: ios/build/${{ env.APP_NAME }}.ipa
