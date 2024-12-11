@@ -1,13 +1,15 @@
-name: Build iOS
+name: Build & Publish iOS App
 
 on:
-  workflow_dispatch:
-    inputs:
-      publish:
-        type: boolean
-        description: 'Publish App'
-        required: false
-        default: false
+  push:
+    paths:
+      - 'ios/**'
+      - src
+      - App.tsx
+      - index.js
+      - package.json
+      - yarn.lock
+      - .env
 
 env:
   APP_NAME: ShopApperApp
@@ -16,8 +18,27 @@ env:
   APP_BUNDLE_ID: shopapper.weptile.shopapperbuild
 
 jobs:
-  build-ios:
+  prepare:
+    name: Preparing
     runs-on: macos-latest
+    outputs:
+      native-change: ${{ needs.native-file-changes.outputs.ios }}
+    steps:
+      - name: Detect native files changes
+        uses: dorny/paths-filter@v3
+        id: native-file-changes
+        with:
+          filters: |
+            ios:
+              - 'ios/**'
+              - '.env'
+
+  build:
+    name: Build iOS App
+    runs-on: macos-latest
+    if: ${{ needs.prepare.outputs.native-change == 'true' }}
+    needs:
+      - prepare
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -113,18 +134,35 @@ jobs:
           name: IPA
           path: ios/build/${{ env.APP_NAME }}.ipa
 
+  repack:
+    name: Repack iOS App
+    runs-on: macos-latest
+    if: ${{ needs.prepare.outputs.native-change == 'false' }}
+    needs:
+      - prepare
+    steps:
+      - name: test
+        run: |
+          echo "There is no native change detected!"
+
+  publish:
+    name: Publish iOS App
+    runs-on: macos-latest
+    if: always()
+    needs:
+      - build
+      - repack
+    steps:
+      - name: Retrieve IPA file
+        uses: actions/download-artifact@v4
+        with:
+          name: IPA
+          path: path/to/artifacts
+
       - name: Upload app to TestFlight
-        if: ${{ github.event.inputs.publish == 'true' }}
         uses: Apple-Actions/upload-testflight-build@v1
         with:
           app-path: ios/build/${{ env.APP_NAME }}.ipa
           issuer-id: ${{ secrets.APPSTORE_CONNECT_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_CONNECT_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_CONNECT_PRIVATE_KEY }}
-
-      # https://docs.github.com/en/actions/use-cases-and-examples/deploying/installing-an-apple-certificate-on-macos-runners-for-xcode-development#required-clean-up-on-self-hosted-runners
-      #- name: Clean up keychain and provisioning profile
-      #  if: ${{ always() }}
-      #  run: |
-      #    security delete-keychain $RUNNER_TEMP/app-signing.keychain-db
-      #    rm ~/Library/MobileDevice/Provisioning\ Profiles/build_pp.mobileprovision
