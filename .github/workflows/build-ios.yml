@@ -24,6 +24,9 @@ jobs:
     outputs:
       native-change: ${{ needs.native-file-changes.outputs.ios }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Detect native files changes
         uses: dorny/paths-filter@v3
         id: native-file-changes
