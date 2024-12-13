@@ -22,7 +22,7 @@ jobs:
     name: Preparing
     runs-on: macos-latest
     outputs:
-      native-change: ${{ needs.native-file-changes.outputs.ios }}
+      native-change: ${{ steps.native-file-changes.outputs.ios }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
